@@ -1,2 +1,3 @@
 # broono
-JavaScript Based Reporting Service
+
+A Powershell Script for Managing Multiple Repo Single Project Setup
