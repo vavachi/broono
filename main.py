@@ -111,12 +111,37 @@ def main():
             background-color: #ffffff;
             border: 1px solid #cbd5e1;
             border-radius: 6px;
-            padding: 5px;
+            padding: 5px 10px;
+            min-height: 20px;
         }
         
+        QComboBox:hover {
+            border: 1px solid #3b82f6;
+        }
+
+        QComboBox::drop-down {
+            border: none;
+            width: 20px;
+        }
+
+        QComboBox::down-arrow {
+            image: none;
+            border-left: 5px solid transparent;
+            border-right: 5px solid transparent;
+            border-top: 5px solid #64748b;
+            margin-right: 10px;
+        }
+
         QComboBox QAbstractItemView {
             background-color: #ffffff;
             selection-background-color: #dbeafe;
+            selection-color: #1e3a8a;
+            border: 1px solid #cbd5e1;
+            outline: 0px;
+        }
+
+        QComboBox QAbstractItemView::item {
+            padding: 8px;
         }
     """)
     

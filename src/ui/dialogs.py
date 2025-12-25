@@ -8,7 +8,7 @@ class ConnectionDialog(QDialog):
     def __init__(self, parent=None):
         super().__init__(parent)
         self.setWindowTitle("Connect to Database")
-        self.resize(400, 250)
+        self.resize(500, 250)
         
         self.config_manager = ConfigManager()
         
@@ -29,12 +29,18 @@ class ConnectionDialog(QDialog):
         layout.addLayout(profile_layout)
 
         form_layout = QFormLayout()
+        form_layout.setLabelAlignment(Qt.AlignmentFlag.AlignRight)
+        form_layout.setFormAlignment(Qt.AlignmentFlag.AlignVCenter | Qt.AlignmentFlag.AlignHCenter)
         
         self.server_input = QLineEdit()
         self.db_input = QLineEdit()
         self.user_input = QLineEdit()
         self.pass_input = QLineEdit()
         self.pass_input.setEchoMode(QLineEdit.EchoMode.Password)
+        
+        # Consistent widths
+        for input_field in [self.server_input, self.db_input, self.user_input, self.pass_input]:
+            input_field.setMinimumWidth(300)
         self.trusted_chk = QCheckBox("Use Trusted Connection (Windows Auth)")
         self.trusted_chk.toggled.connect(self._toggle_auth)
         self.trust_cert_chk = QCheckBox("Trust Server Certificate (for self-signed/Dev)")

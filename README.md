@@ -39,6 +39,17 @@ pip install -r requirements.txt
 python main.py
 ```
 
+## 📦 Tech Stack & Libraries
+
+Broono is built using a modern, robust Python stack:
+
+- **[Python](https://www.python.org/) (3.10+)**: Core programming language.
+- **[PyQt6](https://pypi.org/project/PyQt6/)**: For the modern, responsive Graphical User Interface.
+- **[pyodbc](https://pypi.org/project/pyodbc/)**: For high-performance database connectivity via ODBC.
+- **difflib**: (Built-in) For precise side-by-side text difference analysis.
+- **json**: (Built-in) For managing local connection profiles and configuration.
+- **PyInstaller**: (Optional) For compiling the application into a standalone Windows executable.
+
 ## 📦 Creating an Executable (.exe)
 ```bash
 pip install pyinstaller
