@@ -1,0 +1,11 @@
+profiles.json
+__pycache__/
+*.py[cod]
+*.class
+.DS_Store
+.venv/
+venv/
+env/
+build/
+dist/
+*.egg-info/
