@@ -106,8 +106,8 @@ class DiffDialog(QDialog):
         layout.setSpacing(10)
         
         # Header
-        header = QLabel(f"Comparing <b>{obj_name}</b>: <span style='color: #d73a49;'>Target (Local)</span> vs <span style='color: #22863a;'>Source (New)</span>")
-        header.setStyleSheet("font-size: 11px; font-weight: bold;")
+        header = QLabel(f"Comparing <b>{obj_name}</b>: <span style='color: #ef4444;'>Target (Local)</span> vs <span style='color: #10b981;'>Source (New)</span>")
+        header.setStyleSheet("font-size: 11px; font-weight: bold; color: #1e3a8a;")
         header.setFixedHeight(20)
         layout.addWidget(header)
         
@@ -181,22 +181,22 @@ class DiffDialog(QDialog):
                 max_len = max(i2 - i1, j2 - j1)
                 for k in range(max_len):
                     if i1 + k < i2:
-                        left_parts.append(f"<div style='background-color: #ffdce0; color: black;'>{self._html_escape(old_lines[i1+k])}</div>")
+                        left_parts.append(f"<div style='background-color: #fee2e2; color: #991b1b;'>{self._html_escape(old_lines[i1+k])}</div>")
                     else:
-                        left_parts.append("<div style='background-color: #f6f8fa;'>&nbsp;</div>")
+                        left_parts.append("<div style='background-color: #f0f7ff;'>&nbsp;</div>")
                     
                     if j1 + k < j2:
-                        right_parts.append(f"<div style='background-color: #dbffdb; color: black;'>{self._html_escape(new_lines[j1+k])}</div>")
+                        right_parts.append(f"<div style='background-color: #dcfce7; color: #166534;'>{self._html_escape(new_lines[j1+k])}</div>")
                     else:
-                        right_parts.append("<div style='background-color: #f6f8fa;'>&nbsp;</div>")
+                        right_parts.append("<div style='background-color: #f0f7ff;'>&nbsp;</div>")
             elif tag == 'delete':
                 for i in range(i1, i2):
-                    left_parts.append(f"<div style='background-color: #ffdce0; color: black;'>{self._html_escape(old_lines[i])}</div>")
-                    right_parts.append("<div style='background-color: #f6f8fa;'>&nbsp;</div>")
+                    left_parts.append(f"<div style='background-color: #fee2e2; color: #991b1b;'>{self._html_escape(old_lines[i])}</div>")
+                    right_parts.append("<div style='background-color: #f0f7ff;'>&nbsp;</div>")
             elif tag == 'insert':
                 for j in range(j1, j2):
-                    left_parts.append("<div style='background-color: #f6f8fa;'>&nbsp;</div>")
-                    right_parts.append(f"<div style='background-color: #dbffdb; color: black;'>{self._html_escape(new_lines[j])}</div>")
+                    left_parts.append("<div style='background-color: #f0f7ff;'>&nbsp;</div>")
+                    right_parts.append(f"<div style='background-color: #dcfce7; color: #166534;'>{self._html_escape(new_lines[j])}</div>")
                     
         left_parts.append("</pre>")
         right_parts.append("</pre>")

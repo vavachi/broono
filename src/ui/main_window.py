@@ -1,6 +1,6 @@
 from PyQt6.QtWidgets import (QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, 
                              QPushButton, QLabel, QGroupBox, QTextEdit, QTreeWidget, 
-                             QTreeWidgetItem, QMessageBox, QSplitter, QLineEdit, QFileDialog, QMenu)
+                             QTreeWidgetItem, QMessageBox, QSplitter, QLineEdit, QFileDialog, QMenu, QHeaderView)
 from PyQt6.QtCore import Qt, QPoint
 import json
 from datetime import datetime
@@ -13,7 +13,7 @@ from src.ui.dialogs import ConnectionDialog, DiffDialog
 class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
-        self.setWindowTitle("MSSQL Schema Comparison Tool")
+        self.setWindowTitle("Broono")
         self.resize(1100, 750)
         
         # State
@@ -28,19 +28,37 @@ class MainWindow(QMainWindow):
         central_widget = QWidget()
         self.setCentralWidget(central_widget)
         main_layout = QVBoxLayout(central_widget)
-        main_layout.setContentsMargins(15, 15, 15, 15)
-        main_layout.setSpacing(10)
+        main_layout.setContentsMargins(10, 8, 10, 8)
+        main_layout.setSpacing(6)
+        
+        # Header
+        header_layout = QVBoxLayout()
+        header_layout.setSpacing(0)
+        title_lbl = QLabel("Broono")
+        title_lbl.setStyleSheet("font-size: 20px; font-weight: bold; color: #1d4ed8;")
+        sub_title_lbl = QLabel("MSSQL Schema comparison tool")
+        sub_title_lbl.setStyleSheet("font-size: 11px; color: #3b82f6; margin-bottom: 5px;")
+        header_layout.addWidget(title_lbl)
+        header_layout.addWidget(sub_title_lbl)
+        main_layout.addLayout(header_layout)
         
         # 1. Connection Area (Compact Horizontal)
-        self.conn_area = QGroupBox("Database Connections")
-        conn_layout = QHBoxLayout(self.conn_area)
-        conn_layout.setContentsMargins(10, 20, 10, 10)
+        self.conn_area = QGroupBox()
+        conn_box_layout = QVBoxLayout(self.conn_area)
+        conn_box_layout.setContentsMargins(10, 5, 10, 10)
+        conn_box_layout.setSpacing(5)
+        
+        box_title = QLabel("DATABASE CONNECTIONS")
+        box_title.setStyleSheet("font-size: 10px; font-weight: bold; color: #475569; letter-spacing: 1px;")
+        conn_box_layout.addWidget(box_title)
+        
+        conn_layout = QHBoxLayout()
         conn_layout.setSpacing(10)
         
         # Source
         src_lbl = QLabel("<b>Source:</b>")
         self.src_status = QLabel("Not Connected")
-        self.src_status.setStyleSheet("color: red")
+        self.src_status.setStyleSheet("color: #ef4444")
         btn_src_conn = QPushButton("🔌 Connect...")
         btn_src_conn.setFixedWidth(100)
         btn_src_conn.setCursor(Qt.CursorShape.PointingHandCursor)
@@ -49,7 +67,7 @@ class MainWindow(QMainWindow):
         # Target
         tgt_lbl = QLabel("<b>Target:</b>")
         self.tgt_status = QLabel("Not Connected")
-        self.tgt_status.setStyleSheet("color: red")
+        self.tgt_status.setStyleSheet("color: #ef4444")
         btn_tgt_conn = QPushButton("🔌 Connect...")
         btn_tgt_conn.setFixedWidth(100)
         btn_tgt_conn.setCursor(Qt.CursorShape.PointingHandCursor)
@@ -58,11 +76,12 @@ class MainWindow(QMainWindow):
         conn_layout.addWidget(src_lbl)
         conn_layout.addWidget(self.src_status, 1)
         conn_layout.addWidget(btn_src_conn)
-        conn_layout.addSpacing(40)
+        conn_layout.addSpacing(30)
         conn_layout.addWidget(tgt_lbl)
         conn_layout.addWidget(self.tgt_status, 1)
         conn_layout.addWidget(btn_tgt_conn)
         
+        conn_box_layout.addLayout(conn_layout)
         main_layout.addWidget(self.conn_area)
         
         # 2. Action Area
@@ -92,14 +111,17 @@ class MainWindow(QMainWindow):
         self.btn_load_comp.clicked.connect(self.load_comparison)
         
         action_layout.addWidget(self.btn_compare)
+        action_layout.addWidget(self.btn_generate)
+        
+        action_layout.addStretch(1) # Gap between primary and secondary
+        
         action_layout.addWidget(self.btn_load_list)
         action_layout.addWidget(self.btn_save_comp)
         action_layout.addWidget(self.btn_load_comp)
-        action_layout.addWidget(self.btn_generate)
         main_layout.addLayout(action_layout)
         
         # 3. Results Area (Splitter for Tree vs Script)
-        splitter = QSplitter(Qt.Orientation.Horizontal)
+        self.results_splitter = QSplitter(Qt.Orientation.Horizontal)
         
         # Left side: Search + Tree
         tree_container = QWidget()
@@ -107,7 +129,8 @@ class MainWindow(QMainWindow):
         tree_container_layout.setContentsMargins(0, 0, 0, 0)
         
         self.search_input = QLineEdit()
-        self.search_input.setPlaceholderText("Search objects...")
+        self.search_input.setPlaceholderText("🔍 Search objects...")
+        self.search_input.setClearButtonEnabled(True)
         self.search_input.textChanged.connect(self.filter_tree)
         tree_container_layout.addWidget(self.search_input)
         
@@ -116,16 +139,23 @@ class MainWindow(QMainWindow):
         self.tree.itemDoubleClicked.connect(self.show_diff)
         self.tree.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
         self.tree.customContextMenuRequested.connect(self.show_context_menu)
+        self.tree.setColumnWidth(0, 300) # 30% of original 330 container width
         tree_container_layout.addWidget(self.tree)
         
-        splitter.addWidget(tree_container)
+        self.results_splitter.addWidget(tree_container)
         
         self.script_view = QTextEdit()
         self.script_view.setReadOnly(True)
         self.script_view.setPlaceholderText("Generated SQL script will appear here...")
-        splitter.addWidget(self.script_view)
+        self.results_splitter.addWidget(self.script_view)
         
-        main_layout.addWidget(splitter, stretch=1)
+        # Start with script view hidden (100% tree)
+        self.results_splitter.setSizes([1, 0])
+        # Set stretch factors so they resize proportionally (3:7 ratio)
+        self.results_splitter.setStretchFactor(0, 31)
+        self.results_splitter.setStretchFactor(1, 69)
+        
+        main_layout.addWidget(self.results_splitter, stretch=1)
         
         self.statusBar().showMessage("Ready")
 
@@ -329,7 +359,7 @@ class MainWindow(QMainWindow):
                     item = QTreeWidgetItem(drop_root, [name, "Drop", ""])
                     item.setCheckState(0, Qt.CheckState.Checked)
                 
-        self.tree.expandAll()
+        self.tree.collapseAll()
         self.tree.itemChanged.connect(self._handle_tree_check)
         self._handle_tree_check_connected = True
         self.search_input.clear() # Clear search when data changes
@@ -385,6 +415,9 @@ class MainWindow(QMainWindow):
             generator = ScriptGenerator()
             sql = generator.generate(selected_diff)
             self.script_view.setText(sql)
+            
+            # Show the script view (30/70 split)
+            self.results_splitter.setSizes([330, 770])
         except Exception as e:
              QMessageBox.critical(self, "Error", f"Generation failed: {str(e)}")
 
