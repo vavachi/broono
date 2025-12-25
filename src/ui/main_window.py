@@ -2,6 +2,8 @@ from PyQt6.QtWidgets import (QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
                              QPushButton, QLabel, QGroupBox, QTextEdit, QTreeWidget, 
                              QTreeWidgetItem, QMessageBox, QSplitter, QLineEdit, QFileDialog, QMenu)
 from PyQt6.QtCore import Qt, QPoint
+import json
+from datetime import datetime
 from src.db.connector import DbConnector
 from src.db.schema import SchemaExtractor
 from src.core.compare import SchemaComparer
@@ -26,29 +28,73 @@ class MainWindow(QMainWindow):
         central_widget = QWidget()
         self.setCentralWidget(central_widget)
         main_layout = QVBoxLayout(central_widget)
+        main_layout.setContentsMargins(15, 15, 15, 15)
+        main_layout.setSpacing(10)
         
-        # 1. Connection Area
-        conn_layout = QHBoxLayout()
-        self.source_group = self._create_conn_group("Source Database", self.source_connector)
-        self.target_group = self._create_conn_group("Target Database", self.target_connector)
-        conn_layout.addWidget(self.source_group)
-        conn_layout.addWidget(self.target_group)
-        main_layout.addLayout(conn_layout)
+        # 1. Connection Area (Compact Horizontal)
+        self.conn_area = QGroupBox("Database Connections")
+        conn_layout = QHBoxLayout(self.conn_area)
+        conn_layout.setContentsMargins(10, 20, 10, 10)
+        conn_layout.setSpacing(10)
+        
+        # Source
+        src_lbl = QLabel("<b>Source:</b>")
+        self.src_status = QLabel("Not Connected")
+        self.src_status.setStyleSheet("color: red")
+        btn_src_conn = QPushButton("🔌 Connect...")
+        btn_src_conn.setFixedWidth(100)
+        btn_src_conn.setCursor(Qt.CursorShape.PointingHandCursor)
+        btn_src_conn.clicked.connect(lambda: self.open_connection_dialog(self.source_connector, self.src_status))
+        
+        # Target
+        tgt_lbl = QLabel("<b>Target:</b>")
+        self.tgt_status = QLabel("Not Connected")
+        self.tgt_status.setStyleSheet("color: red")
+        btn_tgt_conn = QPushButton("🔌 Connect...")
+        btn_tgt_conn.setFixedWidth(100)
+        btn_tgt_conn.setCursor(Qt.CursorShape.PointingHandCursor)
+        btn_tgt_conn.clicked.connect(lambda: self.open_connection_dialog(self.target_connector, self.tgt_status))
+        
+        conn_layout.addWidget(src_lbl)
+        conn_layout.addWidget(self.src_status, 1)
+        conn_layout.addWidget(btn_src_conn)
+        conn_layout.addSpacing(40)
+        conn_layout.addWidget(tgt_lbl)
+        conn_layout.addWidget(self.tgt_status, 1)
+        conn_layout.addWidget(btn_tgt_conn)
+        
+        main_layout.addWidget(self.conn_area)
         
         # 2. Action Area
         action_layout = QHBoxLayout()
-        self.btn_compare = QPushButton("Compare Schemas")
+        action_layout.setSpacing(15)
+        
+        self.btn_compare = QPushButton("🔍 Compare Schemas")
+        self.btn_compare.setCursor(Qt.CursorShape.PointingHandCursor)
         self.btn_compare.clicked.connect(self.run_comparison)
         
-        self.btn_load_list = QPushButton("Load Object List...")
+        self.btn_load_list = QPushButton("📂 Load Object List...")
+        self.btn_load_list.setCursor(Qt.CursorShape.PointingHandCursor)
         self.btn_load_list.clicked.connect(self.load_object_list)
         
-        self.btn_generate = QPushButton("Generate Script")
+        self.btn_generate = QPushButton("🚀 Generate Script")
+        self.btn_generate.setCursor(Qt.CursorShape.PointingHandCursor)
         self.btn_generate.clicked.connect(self.generate_script)
         self.btn_generate.setEnabled(False)
         
+        self.btn_save_comp = QPushButton("💾 Save Comp.")
+        self.btn_save_comp.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.btn_save_comp.clicked.connect(self.save_comparison)
+        self.btn_save_comp.setEnabled(False)
+        
+        self.btn_load_comp = QPushButton("📁 Load Comp.")
+        self.btn_load_comp.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.btn_load_comp.clicked.connect(self.load_comparison)
+        
         action_layout.addWidget(self.btn_compare)
         action_layout.addWidget(self.btn_load_list)
+        action_layout.addWidget(self.btn_save_comp)
+        action_layout.addWidget(self.btn_load_comp)
         action_layout.addWidget(self.btn_generate)
         main_layout.addLayout(action_layout)
         
@@ -82,21 +128,6 @@ class MainWindow(QMainWindow):
         main_layout.addWidget(splitter, stretch=1)
         
         self.statusBar().showMessage("Ready")
-
-    def _create_conn_group(self, title, connector_ref):
-        group = QGroupBox(title)
-        layout = QVBoxLayout(group)
-        
-        lbl_status = QLabel("Not Connected")
-        lbl_status.setStyleSheet("color: red")
-        
-        btn_connect = QPushButton("Connect...")
-        btn_connect.clicked.connect(lambda: self.open_connection_dialog(connector_ref, lbl_status))
-        
-        layout.addWidget(lbl_status)
-        layout.addWidget(btn_connect)
-        group.lbl_status = lbl_status 
-        return group
 
     def open_connection_dialog(self, connector, label_widget):
         dlg = ConnectionDialog(self)
@@ -153,6 +184,7 @@ class MainWindow(QMainWindow):
             
             self._populate_tree(self.diff)
             self.btn_generate.setEnabled(True)
+            self.btn_save_comp.setEnabled(True)
             self.statusBar().showMessage("Comparison Complete")
             
         except Exception as e:
@@ -172,6 +204,46 @@ class MainWindow(QMainWindow):
         diff_action = menu.addAction("Show Comparison")
         diff_action.triggered.connect(lambda: self.show_diff(item))
         menu.exec(self.tree.viewport().mapToGlobal(pos))
+
+    def save_comparison(self):
+        if not self.diff:
+            return
+            
+        file_path, _ = QFileDialog.getSaveFileName(self, "Save Comparison", "", "JSON Files (*.json);;All Files (*)")
+        if file_path:
+            try:
+                data = {
+                    "saved_at": datetime.now().isoformat(),
+                    "diff": self.diff,
+                    "source_schema": self.source_schema,
+                    "target_schema": self.target_schema
+                }
+                with open(file_path, 'w') as f:
+                    json.dump(data, f, indent=4)
+                self.statusBar().showMessage(f"Comparison saved to {file_path}")
+            except Exception as e:
+                QMessageBox.critical(self, "Error", f"Failed to save comparison: {str(e)}")
+
+    def load_comparison(self):
+        file_path, _ = QFileDialog.getOpenFileName(self, "Load Comparison", "", "JSON Files (*.json);;All Files (*)")
+        if file_path:
+            try:
+                with open(file_path, 'r') as f:
+                    data = json.load(f)
+                
+                self.diff = data.get("diff")
+                self.source_schema = data.get("source_schema")
+                self.target_schema = data.get("target_schema")
+                
+                if not self.diff or not self.source_schema or not self.target_schema:
+                    raise ValueError("Invalid comparison file format.")
+                
+                self._populate_tree(self.diff)
+                self.btn_generate.setEnabled(True)
+                self.btn_save_comp.setEnabled(True)
+                self.statusBar().showMessage(f"Loaded comparison from {file_path}")
+            except Exception as e:
+                QMessageBox.critical(self, "Error", f"Failed to load comparison: {str(e)}")
 
     def show_diff(self, item, column=0):
         # Determine object name and type
