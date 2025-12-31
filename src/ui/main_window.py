@@ -1,7 +1,8 @@
-from PyQt6.QtWidgets import (QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, 
+from PyQt6.QtWidgets import (QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, 
                              QPushButton, QLabel, QGroupBox, QTextEdit, QTreeWidget, 
-                             QTreeWidgetItem, QMessageBox, QSplitter, QLineEdit, QFileDialog, QMenu, QHeaderView)
-from PyQt6.QtCore import Qt, QPoint
+                             QTreeWidgetItem, QMessageBox, QSplitter, QLineEdit, QFileDialog, QMenu, QHeaderView,
+                             QCheckBox, QDateEdit)
+from PyQt6.QtCore import Qt, QPoint, QDate
 import json
 from datetime import datetime
 from src.db.connector import DbConnector
@@ -112,6 +113,19 @@ class MainWindow(QMainWindow):
         
         action_layout.addWidget(self.btn_compare)
         action_layout.addWidget(self.btn_generate)
+
+        # Date Filter
+        self.chk_date_filter = QCheckBox("Changes from:")
+        self.chk_date_filter.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.chk_date_filter.stateChanged.connect(self.toggle_date_filter)
+        
+        self.date_edit = QDateEdit()
+        self.date_edit.setCalendarPopup(True)
+        self.date_edit.setDate(QDate.currentDate())
+        self.date_edit.setEnabled(False)
+
+        action_layout.addWidget(self.chk_date_filter)
+        action_layout.addWidget(self.date_edit)
         
         action_layout.addStretch(1) # Gap between primary and secondary
         
@@ -159,6 +173,9 @@ class MainWindow(QMainWindow):
         
         self.statusBar().showMessage("Ready")
 
+    def toggle_date_filter(self, state):
+        self.date_edit.setEnabled(state == 2) # 2 is Checked
+
     def open_connection_dialog(self, connector, label_widget):
         dlg = ConnectionDialog(self)
         if dlg.exec():
@@ -196,7 +213,12 @@ class MainWindow(QMainWindow):
             return
 
         try:
+            QApplication.setOverrideCursor(Qt.CursorShape.WaitCursor)
+            self.btn_compare.setEnabled(False)
+            
             self.statusBar().showMessage("Extracting schemas...")
+            QApplication.processEvents() # Force UI update
+            
             source_extractor = SchemaExtractor(self.source_connector)
             target_extractor = SchemaExtractor(self.target_connector)
             
@@ -209,8 +231,16 @@ class MainWindow(QMainWindow):
                 self.target_schema = self._apply_object_filter(self.target_schema)
 
             self.statusBar().showMessage("Comparing...")
+            QApplication.processEvents() # Force UI update
+
             comparer = SchemaComparer()
             self.diff = comparer.compare(self.source_schema, self.target_schema)
+
+            # Apply date filter if enabled
+            if self.chk_date_filter.isChecked():
+                filter_date_q = self.date_edit.date()
+                filter_dt = datetime(filter_date_q.year(), filter_date_q.month(), filter_date_q.day())
+                self.diff = self._apply_date_filter(self.diff, filter_dt)
             
             self._populate_tree(self.diff)
             self.btn_generate.setEnabled(True)
@@ -220,6 +250,9 @@ class MainWindow(QMainWindow):
         except Exception as e:
             QMessageBox.critical(self, "Error", f"Comparison failed: {str(e)}")
             self.statusBar().showMessage("Error during comparison")
+        finally:
+            QApplication.restoreOverrideCursor()
+            self.btn_compare.setEnabled(True)
 
     def show_context_menu(self, pos):
         item = self.tree.itemAt(pos)
@@ -314,6 +347,39 @@ class MainWindow(QMainWindow):
                 if name in self.object_filter
             }
         return filtered_schema
+
+    def _apply_date_filter(self, diff, cutoff_date):
+        """Filters the diff to include only objects modified on or after cutoff_date.
+           Note: Dropped objects are filtered out because they don't exist in source to have a date."""
+        filtered_diff = {
+            'tables': {'new': {}, 'modified': {}, 'dropped': []},
+            'procedures': {'new': {}, 'modified': {}, 'dropped': []},
+            'functions': {'new': {}, 'modified': {}, 'dropped': []},
+            'triggers': {'new': {}, 'modified': {}, 'dropped': []}
+        }
+
+        for category in ['tables', 'procedures', 'functions', 'triggers']:
+            # 1. New Objects
+            for name, details in diff[category]['new'].items():
+                # For new objects, the details ARE the schema definition from source
+                # schema.py puts modify_date in the definition
+                obj_date = details.get('modify_date') 
+                if obj_date and obj_date >= cutoff_date:
+                    filtered_diff[category]['new'][name] = details
+
+            # 2. Modified Objects
+            for name, changes in diff[category]['modified'].items():
+                # For modified objects, we look up the object in self.source_schema to find its date
+                source_obj = self.source_schema[category].get(name)
+                if source_obj:
+                    obj_date = source_obj.get('modify_date')
+                    if obj_date and obj_date >= cutoff_date:
+                        filtered_diff[category]['modified'][name] = changes
+
+            # 3. Dropped Objects - EXCLUDED
+            # We cannot check the date of dropped objects as they are not in Source.
+            
+        return filtered_diff
 
     def _populate_tree(self, diff):
         self.tree.itemChanged.disconnect(self._handle_tree_check) if hasattr(self, '_handle_tree_check_connected') else None
