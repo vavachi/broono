@@ -164,7 +164,14 @@ class DiffDialog(QDialog):
             return str(details['definition'])
         if isinstance(details, dict):
             import json
-            return json.dumps(details, indent=4)
+            from datetime import date, datetime
+
+            def default_serializer(obj):
+                if isinstance(obj, (datetime, date)):
+                    return obj.isoformat()
+                raise TypeError(f"Type {type(obj)} not serializable")
+
+            return json.dumps(details, indent=4, default=default_serializer)
         return str(details)
 
     def _generate_side_by_side_diff(self, old_text, new_text):

@@ -97,6 +97,11 @@ class MainWindow(QMainWindow):
         self.btn_load_list.setCursor(Qt.CursorShape.PointingHandCursor)
         self.btn_load_list.clicked.connect(self.load_object_list)
         
+        self.btn_clear_list = QPushButton("❌ Clear List")
+        self.btn_clear_list.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.btn_clear_list.clicked.connect(self.clear_object_list)
+        self.btn_clear_list.setEnabled(False)
+        
         self.btn_generate = QPushButton("🚀 Generate Script")
         self.btn_generate.setCursor(Qt.CursorShape.PointingHandCursor)
         self.btn_generate.clicked.connect(self.generate_script)
@@ -130,6 +135,7 @@ class MainWindow(QMainWindow):
         action_layout.addStretch(1) # Gap between primary and secondary
         
         action_layout.addWidget(self.btn_load_list)
+        action_layout.addWidget(self.btn_clear_list)
         action_layout.addWidget(self.btn_save_comp)
         action_layout.addWidget(self.btn_load_comp)
         main_layout.addLayout(action_layout)
@@ -203,9 +209,15 @@ class MainWindow(QMainWindow):
                 with open(file_path, 'r') as f:
                     self.object_filter = {line.strip() for line in f if line.strip()}
                 self.statusBar().showMessage(f"Loaded {len(self.object_filter)} objects from list")
+                self.btn_clear_list.setEnabled(True)
                 QMessageBox.information(self, "Success", f"Loaded {len(self.object_filter)} objects. Comparison will be restricted to these items.")
             except Exception as e:
                 QMessageBox.critical(self, "Error", f"Failed to load file: {str(e)}")
+
+    def clear_object_list(self):
+        self.object_filter = None
+        self.btn_clear_list.setEnabled(False)
+        self.statusBar().showMessage("Object list cleared. Next comparison will include all objects.")
 
     def run_comparison(self):
         if not self.source_connector.connection or not self.target_connector.connection:
@@ -376,8 +388,11 @@ class MainWindow(QMainWindow):
                     if obj_date and obj_date >= cutoff_date:
                         filtered_diff[category]['modified'][name] = changes
 
-            # 3. Dropped Objects - EXCLUDED
-            # We cannot check the date of dropped objects as they are not in Source.
+            # 3. Dropped Objects - INCLUDED
+            # Dropped objects are only in Target, so "Source Date" filter doesn't apply to them.
+            # We include them so the user sees all changes except those EXPLICITLY filtered out by source date.
+            if diff[category]['dropped']:
+                filtered_diff[category]['dropped'] = list(diff[category]['dropped'])
             
         return filtered_diff
 
