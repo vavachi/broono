@@ -293,8 +293,14 @@ class MainWindow(QMainWindow):
                     "source_schema": self.source_schema,
                     "target_schema": self.target_schema
                 }
+                def json_serial(obj):
+                    """JSON serializer for objects not serializable by default json code"""
+                    if isinstance(obj, (datetime, date)):
+                        return obj.isoformat()
+                    raise TypeError(f"Type {type(obj)} not serializable")
+
                 with open(file_path, 'w') as f:
-                    json.dump(data, f, indent=4)
+                    json.dump(data, f, indent=4, default=json_serial)
                 self.statusBar().showMessage(f"Comparison saved to {file_path}")
             except Exception as e:
                 QMessageBox.critical(self, "Error", f"Failed to save comparison: {str(e)}")
