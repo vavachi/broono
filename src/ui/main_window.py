@@ -4,7 +4,7 @@ from PyQt6.QtWidgets import (QApplication, QMainWindow, QWidget, QVBoxLayout, QH
                              QCheckBox, QDateEdit)
 from PyQt6.QtCore import Qt, QPoint, QDate
 import json
-from datetime import datetime
+from datetime import datetime, date
 from src.db.connector import DbConnector
 from src.db.schema import SchemaExtractor
 from src.core.compare import SchemaComparer
