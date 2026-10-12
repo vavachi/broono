@@ -12,8 +12,10 @@ class DbConnector:
         if not drivers:
             raise Exception("No ODBC Drivers for SQL Server found.")
         
-        # Prefer newer drivers
-        driver = sorted(drivers, reverse=True)[0]
+        # Prefer Driver 17 over Driver 18: Driver 18 enables encryption by default
+        # which causes ODBC 08001 errors on older/local SQL Server instances.
+        preferred = [d for d in drivers if 'ODBC Driver 17' in d]
+        driver = preferred[0] if preferred else sorted(drivers, reverse=True)[0]
         
         conn_str = f'DRIVER={{{driver}}};SERVER={server};DATABASE={database};'
         
@@ -25,8 +27,10 @@ class DbConnector:
         if trust_cert:
             conn_str += 'TrustServerCertificate=yes;'
         
-        # For Driver 18, encryption is on by default and might need this if using older server/self-signed
-        # We can also explicitly set Encrypt=yes if we wanted, but the error specifically suggests self-signed cert issue.
+        # Driver 18 forces encryption on by default; explicitly disable it
+        # so localhost connections work without a valid SSL certificate chain.
+        if 'ODBC Driver 18' in driver:
+            conn_str += 'Encrypt=no;'
 
         try:
             self.connection = pyodbc.connect(conn_str)
